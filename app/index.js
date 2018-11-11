@@ -4,26 +4,26 @@
  */
 
 //Dependencies
-
 const http = require("http");
 const url = require("url");
 const StringDecoder = require("string_decoder").StringDecoder;
+const config = require("./config");
 
+//Server should responde to all request with a string
 const server = http.createServer((req, res) => {
-  //get the URL and parse it
+  //get the url and parse it
   const parsedUrl = url.parse(req.url, true);
-
-  //get the path
+  //get the path of the url
   const path = parsedUrl.pathname;
-  const trimedPath = path.replace(/^\/+|\/+$/g, "");
+  const trimmedPath = path.replace(/^\/+|\/+$/g, "");
 
-  //get query string from Url
-  const queryStringObjetc = parsedUrl.query;
+  //get the query string as an object
+  const queryStringObject = parsedUrl.query;
 
-  //get the http method
+  //Get the http method
   const method = req.method.toLowerCase();
 
-  //get the headers as an object
+  //Get the headers as an object
   const headers = req.headers;
 
   //Get the payload, if any
@@ -34,58 +34,61 @@ const server = http.createServer((req, res) => {
   });
 
   req.on("end", () => {
-    buffer += decoder.end;
-
-    //choose the handler for the request.  If the request does not exist the handler should be routed to handlers.notFound
-    // console.log("The router is: ", router[trimedPath]);
-
-    var chooseHandler =
-      typeof router[trimedPath] !== undefined
-        ? router[trimedPath]
+    buffer += decoder.end();
+    //choose the handler this request should go to, if one not found choose notFound handler
+    const chosenHandler =
+      typeof router[trimmedPath] !== "undefined"
+        ? router[trimmedPath]
         : handlers.notFound;
 
-    // Construct the data object to be sent to the handlers
+    //construct data object to send to the handler
     const data = {
-      trimedPath,
-      queryStringObjetc,
+      trimmedPath,
+      queryStringObject,
       method,
       headers,
       payload: buffer
     };
-
-    //route the request to the handler specified in the router
-    chooseHandler(data, function(statusCode, payload) {
+    //Route the request to the handler specified in the router
+    chosenHandler(data, function(statusCode, payload) {
+      //Use the status code called by the handler, or default to 200
       statusCode = typeof statusCode == "number" ? statusCode : 200;
+      //Use the payload called back by the handler or default to empty object
       payload = typeof payload == "object" ? payload : {};
-
+      //convert the payload to a string
       const payloadString = JSON.stringify(payload);
 
-      //return the response
-      res.setHeader("Content-Type", "Appliction/json");
+      //send the response
+      res.setHeader("Content-Type", "application/json");
       res.writeHead(statusCode);
       res.end(payloadString);
 
-      //send the response
-      console.log("Returning this response:", statusCode, payloadString);
+      //log the path of the request
+      console.log("Returning this response", statusCode, payloadString);
     });
   });
 });
-
-server.listen(3000, () => {
-  console.log("Server listening on port 3000");
+//start the serve and have it listen on port 3000
+server.listen(config.port, () => {
+  console.log(
+    `The Server is listening on PORT ${config.port} in ${config.envName} mode`
+  );
 });
 
+//Define the handlers
 const handlers = {};
 
-//Define the sample handler
+//Define sample handler
 handlers.sample = (data, callback) => {
+  //callback an http status code, return a payload (as an object)
   callback(406, { name: "sample handler" });
 };
 
+//define a not fount handler
 handlers.notFound = (data, callback) => {
   callback(404);
 };
-
+//Define a request router
 const router = {
   sample: handlers.sample
 };
